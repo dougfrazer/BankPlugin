@@ -14,7 +14,8 @@ public class BankPlugin extends Plugin {
 
     public void enable() {
         // If we had commands we would add them here.
-        etc.getInstance().addCommand("/bank", "Opens up the bank to store items");
+        etc.getInstance().addCommand("/bank", "Shows the items currently in your bank");
+        etc.getInstance().addCommand("/deposit", "Deposit an item into the bank");
         
         listener = new BankListener();
         log.info(this.name + " " + this.version + " enabled");
