@@ -3,62 +3,42 @@
  * @author Doug Frazer
  */
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class BankListener extends PluginListener { 
 
-	public BankInventory inv = null;
-	private BankDB database = new BankDB(); 
-
-    public void disable() {
-        // This gets run when the mod gets disabled so we can do cleanup
-        // We just notify the console though...
-        id.a.log(Level.INFO, "Bank Plugin disabled");
-    }
-
-    public void enable() {
-        // This gets run when the mod gets enabled
-        id.a.log(Level.INFO, "Bank Plugin enabled");
-    }
-
     public boolean onCommand (Player player, String[] split) {
+        BankPlayer myBank = new BankPlayer(player);
+        
+        // Did they enter the /bank command?
         if (split[0].equalsIgnoreCase("/bank")) {
 			int i = 0;
-   			inv = database.getBankItems(player);
-			if(inv = null) {
+			if(myBank.inv == null || myBank.inv.BankArray[0] == null) {
 				player.sendMessage("Your bank is empty.");
 			} else {
-				while(inv.BankArray[iter][ITEM_NAME] != 0) {
-					player.sendMessage("item_id=" + 
-									   BankArray[i][ITEM_NAME] + 
-									   " quantity " + 
-									   BankArray[i][ITEM_QUANTITY]);
-					i++;
+                while(myBank.inv.BankArray[i] != null) {
+			        if(myBank.inv.BankArray[i].item_id != 0) {
+                        myBank.inv.BankArray[i].getItemNameFromDB();
+                        player.sendMessage(i + ": " + "(" + 
+                                           myBank.inv.BankArray[i].quantity + 
+                                           ")x " + 
+                                           myBank.inv.BankArray[i].item_string);
+                        i++;
+                        if (i == myBank.inv.MaxItems) 
+                            break;
+                    }
 				}
+                player.sendMessage("Total bank items: " + myBank.inv.item_count);
 			}
             // return true, we have completed the command
             return true;
-        } else if (split[0].equalsIgnoreCase("/deposit") 
-			if(split[1].equals("") || split[2].equals("")) {
-				player.sendMessage("Syntax: /deposit <item_id> <quantity>");
-				return true;
-			} else {
-				int item_id = 0;
-				int quantity = 0;
-				
-				try {
-					item_id = Integer.parseInt(split[1]);
-					quantity = Integer.parseInt(split[2]);
-				} catch (NumberFormatException) {
-					player.sendMessage("Syntax: /deposit <item_id> <quantity>");
-				}
+        } else if (split[0].equalsIgnoreCase("/deposit")) { 
+            myBank.deposit();
+            return true;
+		} 
 
-				database.addItemToBank(player, item_id, quantity);
-			}
-
-		} else {
-            // return false if you want this command to be parsed
-            return false;
-        }
+        return false;
     }
 
 }

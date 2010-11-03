@@ -5,20 +5,18 @@
 
 public class BankInventory extends ItemArray {
 	
-	private Player player;
-	private MaxItems = 16;
+	public final int MaxItems = 4;
+    public int item_count;
 
-	public enum value {
-		ITEM_NAME,
-		ITEM_QUANTITY,
-		ITEM_MAX
-	}
-	
-	public String[][] BankArray;
+	public BankItem[] BankArray;
 
-	public BankInvetory(Player player) {
-		BankArray = new String[MaxItems][ITEM_MAX]
-		this.player = player;
-	}
+	public BankInventory() {
+		BankArray = new BankItem[MaxItems];
+	    item_count = 0;
+    }
+    
+    public hh[] getArray() {
+        return new hh[0];
+    }
 
 }

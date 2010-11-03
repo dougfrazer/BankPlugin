@@ -3,14 +3,16 @@
 * @author Doug Frazer
 */
 
-// This is how we setup the listener
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 public class BankPlugin extends Plugin {
 
     private String name = "Bank Plugin";
-    private int version = "0.1";
+    private double version = 0.1;
 
     static final Logger log = Logger.getLogger("Minecraft");
-    static final BankListener listener;
+    private BankListener listener;
 
     public void enable() {
         // If we had commands we would add them here.
