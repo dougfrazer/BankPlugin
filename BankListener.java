@@ -10,12 +10,13 @@ public class BankListener extends PluginListener {
 
     public boolean onCommand (Player player, String[] split) {
         BankPlayer myBank = new BankPlayer(player);
-        
-        if (!player.canUseCommand(split[0])) {
-            return false;
-        }
-        
-        if (split[0].equalsIgnoreCase("/bank")) {
+
+        if (split[0].equalsIgnoreCase("/bank") || 
+            split[0].equalsIgnoreCase("/withdraw") || 
+            split[0].equalsIgnoreCase("/deposit")) { 
+            if (!player.canUseCommand(split[0])) {
+                return false;
+            }
 
             // Check their distance from the bank
             if (!myBank.checkDistanceFromBank()) {
@@ -23,7 +24,9 @@ public class BankListener extends PluginListener {
                 player.sendMessage("Warp to the bank using /warp bank.");
                 return true;
             }
-
+        }
+        
+        if (split[0].equalsIgnoreCase("/bank")) {
             // Figure out what page they want to see
             int page = 1;
             if (split.length == 2) {
