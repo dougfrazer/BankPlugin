@@ -9,7 +9,7 @@ import java.util.logging.Logger;
 public class BankPlugin extends Plugin {
 
     private String name = "Bank Plugin";
-    private double version = 0.1;
+    private double version = 1.0;
 
     static final Logger log = Logger.getLogger("Minecraft");
     private BankListener listener;
