@@ -225,6 +225,17 @@ public class BankListener extends PluginListener {
             else
                 player.sendMessage("Failed to add bank " + split[1]);
             return true;
+        } else if (split[0].equalsIgnoreCase("/removebank")) {
+            BankDB database = new BankDB();
+            if (split.length != 2) {
+                player.sendMessage("Syntax: /removebank [name]");
+                return true;
+            }
+            if(database.removeBank(split[1]))
+                player.sendMessage("Successfully removed bank " + split[1]);
+            else
+                player.sendMessage("Failed to remove bank " + split[1]);
+            return true;
         }
     
         return false;

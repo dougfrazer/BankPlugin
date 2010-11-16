@@ -271,6 +271,43 @@ public class BankDB extends MySQLSource {
         return false;
     }
     
+    public boolean removeBank(String name) {
+        Connection conn = null;
+        PreparedStatement query = null;
+        PreparedStatement update = null;
+        ResultSet results = null;
+        
+
+        try { 
+            conn = etc.getSQLConnection();
+            query = conn.prepareStatement("SELECT * FROM banks WHERE name=?;");
+            query.setString(1, name);
+            results = query.executeQuery();
+
+            if(! results.next()) {
+                return false;
+            }
+
+            conn = etc.getSQLConnection();
+            update = conn.prepareStatement("DELETE FROM banks WHERE name=?;");
+            update.setString(1, name);
+            update.executeUpdate();
+
+            return true;
+    
+        } catch (SQLException e) {
+            log.log(Level.SEVERE, "BankDB: Failed to removeBank " + name);
+            log.log(Level.SEVERE, "BankDB: " + e);
+        } finally {
+            try {
+                if (query != null) query.close();
+                if (update != null) update.close();
+                if (results != null) results.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {}
+        }
+        return false;
+    }
     /**
      * In development, still buggy
      * */
