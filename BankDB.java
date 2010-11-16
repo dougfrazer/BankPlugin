@@ -280,6 +280,15 @@ public class BankDB extends MySQLSource {
 
         try { 
             conn = etc.getSQLConnection();
+            query = conn.prepareStatement("SELECT * FROM banks WHERE name=?;");
+            query.setString(1, name);
+            results = query.executeQuery();
+
+            if(! results.next()) {
+                return false;
+            }
+
+            conn = etc.getSQLConnection();
             update = conn.prepareStatement("DELETE FROM banks WHERE name=?;");
             update.setString(1, name);
             update.executeUpdate();

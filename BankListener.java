@@ -235,6 +235,7 @@ public class BankListener extends PluginListener {
                 player.sendMessage("Successfully removed bank " + split[1]);
             else
                 player.sendMessage("Failed to remove bank " + split[1]);
+            return true;
         }
     
         return false;
