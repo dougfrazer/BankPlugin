@@ -7,64 +7,67 @@
 
 import java.util.LinkedList;
 import java.lang.Math;
+import java.util.logging.Level;
 
 public class BankPlayer extends Player {
 
     public BankInventory inv;
     private Player player;
-    private final int MaxXFromBank = 8;
-    private final int MaxYFromBank = 8;
-    private final int MaxZFromBank = 8;
 
     public BankPlayer(Player player) {
         inv = new BankInventory(player);
         this.player = player;
     }
 
-    public void deposit() {
+    public BankItem[] deposit() {
         // Start at the beginning of inventory
+        BankDB database = new BankDB();
+        database.setInventoryLock(player, true);
+
         Inventory charCrafting = player.getCraftingTable();
+        BankItem[] ret = new BankItem[charCrafting.getArray().length];
         Item currItem = null;
         int i = 0;
         int num_items_deposited = 0;
 
         for (i=0;i<charCrafting.getArray().length;i++) {
             if(charCrafting.getItemFromSlot(i) != null) {
-                // deposit item
                 currItem = charCrafting.getItemFromSlot(i);
-                this.inv.addToBankInventory(player, currItem.getItemId(), currItem.getAmount());
-
-                // remove item
                 BankItem temp = new BankItem(player.getName(), currItem);
-                charCrafting.removeItem(currItem.getSlot());
-                charCrafting.updateInventory();
-                temp.getItemNameFromDB();
-                player.sendMessage("Deposited " + currItem.getAmount() + " of " + temp.item_string + " successfully into your bank.");
+                this.inv.addToBankInventory(player, currItem.getItemId(), currItem.getAmount());
+                ret[i] = temp;
                 num_items_deposited++;
             }
         }
+        if (num_items_deposited == 0) return null;
 
-        if (num_items_deposited == 0) {
-            player.sendMessage("Put items in your crafting square.");
-        }
+        // Enter an infinite loop to try and delete items;
+        charCrafting.clearContents();
+        charCrafting.updateInventory();
+
+        database.setInventoryLock(player, false);
+        return ret;
     }
 
-    public void withdraw(int index, int amount) {
+    public BankItem withdraw(int index, int amount) {
         int amt_returned = 0;
-        if (this.inv.BankArray[index] != null) {
-            if(this.inv.BankArray[index].item_id != 0) {
-                amt_returned = this.inv.removeFromBank(this.player, this.inv.BankArray[index].item_id, amount);
-            }
-            player.giveItem(this.inv.BankArray[index].item_id, amt_returned);
-            this.inv.BankArray[index].getItemNameFromDB();
-            if (amt_returned > 0)
-                player.sendMessage("Successfully withdrew " + amt_returned + " of " + this.inv.BankArray[index].item_string);
+        BankItem currItem;
+        try { currItem = this.inv.BankArray.get(index); }
+        catch (IndexOutOfBoundsException e) {
+            return null;
         }
+
+        if(currItem.item_id != 0) {
+            amt_returned = this.inv.removeFromBank(this.player, currItem.item_id, amount);
+        }
+        player.giveItem(currItem.item_id, amt_returned);
+        currItem.quantity = amt_returned;
+        return currItem;
     }
 
     public boolean checkDistanceFromBank() {
         BankDB database = new BankDB();
-        LinkedList<Location> locs;
+        LinkedList<BankLocation> locs;
         locs = database.getBankLocations();
         Location currLoc = this.player.getLocation();
         int i=0;
@@ -74,18 +77,31 @@ public class BankPlayer extends Player {
             return false;
         }
         while(i < locs.size()) {
-            Location bankLoc = locs.get(i);
-        /*    this.player.sendMessage("X: " + Math.abs(currLoc.x - bankLoc.x) + 
-                                    " Y: " + Math.abs(currLoc.y - bankLoc.y) +
-                                    " Z: " + Math.abs(currLoc.z - bankLoc.z));
-        */
-            if(Math.abs(currLoc.x - bankLoc.x) < MaxXFromBank &&
-               Math.abs(currLoc.y - bankLoc.y) < MaxYFromBank &&
-               Math.abs(currLoc.z - bankLoc.z) < MaxZFromBank)
-                return true;
+            BankLocation bank = locs.get(i);
+            double distance = Math.sqrt(Math.pow(bank.x - currLoc.x,2) +
+                                        Math.pow(bank.y - currLoc.y,2) +
+                                        Math.pow(bank.z - currLoc.z,2));
+            if (distance < bank.distance) return true;
             i++;
         }
         return false;
+    }
+
+    public LinkedList<BankLocation> getBanks() {
+        BankDB database = new BankDB();
+        return database.getBankLocations();
+    }
+
+    public boolean setBank(String s, double d) {
+        BankLocation b = new BankLocation(s);
+        BankDB database = new BankDB();
+
+        b.x = player.getLocation().x;
+        b.y = player.getLocation().y;
+        b.z = player.getLocation().z;
+        b.distance = d;
+        
+        return database.setBank(b);
     }
 
 }

@@ -5,11 +5,27 @@
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.LinkedList;
+import java.text.DecimalFormat;
 
 public class BankListener extends PluginListener { 
 
+    private ItemCache cache;
+
+    public BankListener (ItemCache cache) {
+        this.cache = cache;        
+    }
+
+    public boolean onCraftInventoryChange(Player p) {
+        BankDB database = new BankDB();
+        if (database.getInventoryLock(p))
+            return true;
+        return false;
+    }
+
     public boolean onCommand (Player player, String[] split) {
         BankPlayer myBank = new BankPlayer(player);
+        final int MaxBanksPerPage = 6;
 
         if (split[0].equalsIgnoreCase("/bank") || 
             split[0].equalsIgnoreCase("/withdraw") || 
@@ -37,25 +53,25 @@ public class BankListener extends PluginListener {
                 }
             }
 
+            LinkedList<BankItem> bank = myBank.inv.getBank(player);
             page = page - 1;
             page = page*myBank.inv.MaxItemsPerPage;
             int i = 0;
-            if(myBank.inv == null || myBank.inv.BankArray[0] == null) {
+            if(myBank.inv == null || bank.size() == 0) {
                 player.sendMessage("Your bank is empty.");
                 return true;
             } else {
-                while(myBank.inv.BankArray[page+i] != null) {
-                    if(myBank.inv.BankArray[page+i].item_id != 0) {
-                        int curr_index = page + i;
-                        myBank.inv.BankArray[page+i].getItemNameFromDB();
-                        player.sendMessage(Colors.Green + curr_index + ") " + Colors.Rose +
-                                           myBank.inv.BankArray[page+i].quantity + 
-                                           "x " + 
-                                           myBank.inv.BankArray[page+i].item_string);
-                        i++;
-                        if (i == myBank.inv.MaxItemsPerPage) 
-                            break;
-                    }
+                while(page+i < bank.size()) {
+                    BankItem currItem = bank.get(page+i);
+                    int curr_index = page + i + 1;
+
+                    player.sendMessage(Colors.Green + curr_index + ") " + Colors.Rose +
+                                       currItem.quantity + 
+                                       "x " + 
+                                       cache.getItemName(currItem.item_id));
+                    i++;
+                    if (i == myBank.inv.MaxItemsPerPage) 
+                        break;
                 }
                 int curr_page = page/myBank.inv.MaxItemsPerPage + 1;
                 int max_pages = (myBank.inv.item_count + myBank.inv.MaxItemsPerPage - 1)/myBank.inv.MaxItemsPerPage;
@@ -70,7 +86,17 @@ public class BankListener extends PluginListener {
 
         } else if (split[0].equalsIgnoreCase("/deposit")) { 
             if (split.length == 1) { 
-                myBank.deposit();
+                BankItem[] deposited = myBank.deposit();
+                if (deposited == null) {
+                    player.sendMessage("Put items in your crafting square to deposit them");
+                    return true;
+                }
+                for (BankItem i : deposited) {
+                    if (i == null) continue;
+                    if (i.item_id == 0) continue;
+                    player.sendMessage("Successfully deposited " + i.quantity +
+                                       " of " + cache.getItemName(i.item_id));
+                }
                 return true;
             } else {
                 player.sendMessage("Syntax: /deposit");
@@ -108,10 +134,101 @@ public class BankListener extends PluginListener {
                 return true;
             }
             
-            myBank.withdraw(index, amount);
+            BankItem withdrawn = myBank.withdraw(index-1, amount);
+            if (withdrawn == null) return false;
+            player.sendMessage("Successfully withdrew " + withdrawn.quantity +
+                                " of " + cache.getItemName(withdrawn.item_id));
             return true;
+        }  else if (split[0].equalsIgnoreCase("/listbank") || 
+                    split[0].equalsIgnoreCase("/listbanks")) {
+
+            int i = 0;
+            if (split.length == 2) {
+                try { i = Integer.parseInt(split[1]); i -= 1;}
+                catch (NumberFormatException e) {
+                    player.sendMessage("Syntax: /listbanks <page>");
+                    return true;
+                }
+            } else if (split.length > 2) {
+                player.sendMessage("Syntax: /listbanks <page>");
+                return true;
             }
+            LinkedList<BankLocation> locs = myBank.getBanks();
+            BankLocation bank;
+            i = i*MaxBanksPerPage;
+            int num_banks = locs.indexOf(locs.getLast());
+            int bank_pages = num_banks/MaxBanksPerPage+1;
+            int curr_page = i/MaxBanksPerPage + 1;
+            int j = 0;
+
+            while (j < MaxBanksPerPage) {
+                try { bank = locs.get(i); }
+                catch (IndexOutOfBoundsException e) {
+                    player.sendMessage("There are only " + bank_pages + " pages of banks.");
+                    return true;
+                }
+                Location currLoc = player.getLocation();
+                double distance = 0;
+                distance = Math.sqrt(Math.pow(bank.x - currLoc.x,2) +
+                                     Math.pow(bank.y - currLoc.y,2) +
+                                     Math.pow(bank.z - currLoc.z,2));
+                if (distance < bank.distance) {
+                    player.sendMessage(Colors.Blue + bank.name + 
+                                       Colors.Green + " within range.");
+                } else {
+                    String direction = "";
+                    double xd,zd = 0;
+                    double rotX = Math.toDegrees(Math.atan((currLoc.z - bank.z)/(currLoc.x - bank.x)));
+                    xd = bank.x - currLoc.x;
+                    if (xd > 0) {
+                        // Some way south...
+                        if (rotX < -68.5) direction = "East";
+                        else if (rotX < -22.5) direction = "Southeast";
+                        else if (rotX < 22.5) direction = "South";
+                        else if (rotX < 68.5) direction = "Southwest";
+                        else direction = "West";
+                    } else {
+                        // some way north
+                        if (rotX < -68.5) direction = "West";
+                        else if (rotX < -22.5) direction = "Northwest";
+                        else if (rotX < 22.5) direction = "North";
+                        else if (rotX < 68.5) direction = "Northeast";
+                        else direction = "East";
+                    }
+                    DecimalFormat df = new DecimalFormat("#.#");
+                    player.sendMessage(Colors.Blue + bank.name + Colors.Gray + "  " 
+                                       + df.format(distance) + "  blocks "
+                                       + direction);
+                }
+                j++;
+                if (i == locs.indexOf(locs.getLast()))
+                    break;
+                else
+                    i++;
+            }
+            num_banks += 1;
+            player.sendMessage(Colors.LightBlue + "Total banks found: " + num_banks + "  " + Colors.Blue + "[ Page " + curr_page + " / " + bank_pages + " ]");
+            return true;
+
+        } else if (split[0].equalsIgnoreCase("/setbank")) {
+            if (split.length == 1 || split.length == 2 || split.length > 3) {
+                player.sendMessage("Syntax: /setbank [name] [distance]");
+                return true;
+            }
+            int distance = 0;
+            try { distance = Integer.parseInt(split[2]); }
+            catch (NumberFormatException e) {
+                player.sendMessage("Syntax: /setbank [name] [distance]");
+            }
+            if (myBank.setBank(split[1], (double)distance))
+                player.sendMessage("Successfully added bank " + split[1] + " at your current location.");
+            else
+                player.sendMessage("Failed to add bank " + split[1]);
+            return true;
+        }
+    
         return false;
     }
+    
 
 }

@@ -3,18 +3,19 @@
  * @author Doug Frazer
  */
 
+import java.util.LinkedList;
+
 public class BankInventory extends ItemArray {
 	
-	public final int MaxItems = 100;
-    public final int MaxItemsPerPage = 4;
+    public final int MaxItemsPerPage = 6;
     public int item_count;
     private BankDB database;
 
-	public BankItem[] BankArray;
+	public LinkedList<BankItem> BankArray;
 
     public BankInventory (Player p) {
         database = new BankDB();
-        BankArray = database.getBankItems(p, MaxItems);
+        BankArray = database.getBankItems(p);
         item_count = database.getNumItemsInBank(p);
     }
 
@@ -30,7 +31,11 @@ public class BankInventory extends ItemArray {
         return amt_returned;
     }
 
-    public hh[] getArray() {
-        return new hh[0];
+    public hj[] getArray() {
+        return new hj[0];
+    }
+
+    public LinkedList<BankItem> getBank(Player p) {
+        return database.getBankItems(p);
     }
 }

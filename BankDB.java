@@ -16,8 +16,8 @@ import java.util.LinkedList;
 
 public class BankDB extends MySQLSource {
 
-	public BankItem[] getBankItems (Player player, int size) {
-		BankItem item_array[] = new BankItem[size];
+	public LinkedList<BankItem> getBankItems (Player player) {
+		LinkedList<BankItem> items = new LinkedList<BankItem>();
 		Connection conn = null;
 		PreparedStatement prepped = null;
 		ResultSet results = null;
@@ -25,21 +25,21 @@ public class BankDB extends MySQLSource {
 
 		try {
             conn = etc.getSQLConnection();
-			prepped = conn.prepareStatement("SELECT * FROM minebank WHERE player=?;");
+			prepped = conn.prepareStatement("SELECT * FROM minebank WHERE player=? ORDER BY item ASC;");
 			prepped.setString(1, player.getName());
 			results = prepped.executeQuery();
 
-			while(results.next() && i < size) {
+			while(results.next()) {
                 BankItem currItem = new BankItem();
 				currItem.item_id = results.getInt("item");
 				currItem.quantity = results.getInt("quantity");
                 currItem.player = player.getName();
-                item_array[i] = currItem;
-				i++;
+                items.add(currItem);
 			}
 
-		} catch (SQLException ex) {
+		} catch (SQLException e) {
 			log.log(Level.SEVERE, "BankDB: Failed to execute SQL Query 1");
+            log.log(Level.SEVERE, "BankDB: " + e);
 		} finally {
 			try {
 				if (prepped != null) prepped.close();
@@ -47,7 +47,7 @@ public class BankDB extends MySQLSource {
 				if (conn != null) conn.close();
 			} catch (SQLException e) {}
 		}
-		return item_array;
+		return items;
 	}
 
 	public void addItemToBank (Player player, int item_id, int quantity) {
@@ -77,8 +77,9 @@ public class BankDB extends MySQLSource {
                 update.setInt(3, quantity);
                 update.executeUpdate();
             }
-		} catch (SQLException ex) {
+		} catch (SQLException e) {
 			log.log(Level.SEVERE, "BankDB: Failed to addItemToBank for " + player.getName());
+            log.log(Level.SEVERE, "BankDB: " + e);
 		} finally {
 			try {
 				if (update != null) update.close();
@@ -126,6 +127,7 @@ public class BankDB extends MySQLSource {
             }
         } catch (SQLException e) {
             log.log(Level.SEVERE, "BankDB: Failed to withdraw item for player " +player.getName());
+            log.log(Level.SEVERE, "BankDB: " + e);
         } finally {
 			try {
 				if (update != null) update.close();
@@ -154,6 +156,7 @@ public class BankDB extends MySQLSource {
             }
         } catch (SQLException e) {
             log.log(Level.SEVERE, "BankDB: Failed to get item count for player " + player.getName());
+            log.log(Level.SEVERE, "BankDB: " + e);
         } finally {
             try {
                 if (query != null) query.close();
@@ -172,7 +175,7 @@ public class BankDB extends MySQLSource {
 
         try {
             conn = etc.getSQLConnection();
-            query = conn.prepareStatement("SELECT name FROM items WHERE itemid=?;");
+            query = conn.prepareStatement("SELECT name FROM `items` WHERE itemid=?;");
             query.setInt(1, item_id);
             results = query.executeQuery();
 
@@ -182,6 +185,7 @@ public class BankDB extends MySQLSource {
 
         } catch (SQLException e) {
             log.log(Level.SEVERE, "BankDB: Failed to get item name for itemid " + item_id);
+            log.log(Level.SEVERE, "BankDB: " + e);
         } finally {
             try {
                 if (query != null) query.close();
@@ -192,27 +196,30 @@ public class BankDB extends MySQLSource {
         return ret_string;
     }
 
-    public LinkedList<Location> getBankLocations() {
-        LinkedList<Location> locations = new LinkedList<Location>();
+    public LinkedList<BankLocation> getBankLocations() {
+        LinkedList<BankLocation> locations = new LinkedList<BankLocation>();
         Connection conn = null;
         PreparedStatement query = null;
         ResultSet results = null;
 
         try {
             conn = etc.getSQLConnection();
-            query = conn.prepareStatement("SELECT x,y,z FROM warps WHERE name='bank';");
+            query = conn.prepareStatement("SELECT * FROM banks;");
             results = query.executeQuery();
     
             while(results.next()) {
-                Location newLoc = new Location(results.getInt("x"),
-                                               results.getInt("y"),
-                                               results.getInt("z"));
+                BankLocation newLoc = new BankLocation(results.getString("name"),
+                                                   results.getDouble("x"),
+                                                   results.getDouble("y"),
+                                                   results.getDouble("z"));
+                newLoc.distance = results.getDouble("distance");
                 locations.add(newLoc);
             }
 
             return locations;
         } catch (SQLException e) {
             log.log(Level.SEVERE, "BankDB: Failed to get list of banks");
+            log.log(Level.SEVERE, "BankDB: " + e);
         } finally {
             try {
                 if (query != null) query.close();
@@ -221,6 +228,183 @@ public class BankDB extends MySQLSource {
             } catch (SQLException e) {}
         }
         return null;
+    }
+
+    public boolean setBank(BankLocation loc) {
+        Connection conn = null;
+        PreparedStatement query = null;
+        PreparedStatement update = null;
+        ResultSet results = null;
+        
+
+        try { 
+            conn = etc.getSQLConnection();
+            query = conn.prepareStatement("SELECT * FROM banks WHERE name=?;");
+            query.setString(1, loc.name);
+            results = query.executeQuery();
+
+            if(results.next()) {
+                return false;
+            }
+
+            update = conn.prepareStatement("INSERT INTO banks (x,y,z,distance,name) VALUES (?,?,?,?,?);");
+            update.setDouble(1, loc.x);
+            update.setDouble(2, loc.y);
+            update.setDouble(3, loc.z);
+            update.setDouble(4, loc.distance);
+            update.setString(5, loc.name);
+            update.executeUpdate();
+
+            return true;
+    
+        } catch (SQLException e) {
+            log.log(Level.SEVERE, "BankDB: Failed to setBank " + loc.name);
+            log.log(Level.SEVERE, "BankDB: " + e);
+        } finally {
+            try {
+                if (query != null) query.close();
+                if (update != null) update.close();
+                if (results != null) results.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {}
+        }
+        return false;
+    }
+    
+    /**
+     * In development, still buggy
+     * */
+    public LinkedList<BankItem> total_item_list() {
+        Connection conn = null;
+        LinkedList<BankItem> items;
+        PreparedStatement count_q = null;
+        PreparedStatement item_q = null;
+        ResultSet count_results = null;
+        ResultSet item_results = null;
+
+        try {
+            conn = etc.getSQLConnection();
+            count_q = conn.prepareStatement("SELECT COUNT(DISTINCT id) as num_items FROM `items-new`;");
+            count_results = count_q.executeQuery();
+            if(count_results.next())
+                items = new LinkedList<BankItem>();
+            else
+                return null;
+
+            item_q = conn.prepareStatement("SELECT id,name,code FROM `items-new` order by id asc;");
+            item_results = item_q.executeQuery();
+
+            while(item_results.next()) {
+                BankItem newItem = new BankItem();
+                newItem.item_id = item_results.getInt("id");
+                newItem.item_string = item_results.getString("name");
+                newItem.code = item_results.getInt("code");
+                items.add(newItem);
+            }
+            return items;
+        } catch (SQLException e) {
+            log.log(Level.SEVERE, "BankDB: " + e);
+        } finally {
+            try {
+                if (count_q != null) count_q.close();
+                if (item_q != null) item_q.close();
+                if (count_results != null) count_results.close();
+                if (item_results != null) item_results.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) { }
+        }
+        return null;
+    }
+
+    public int max_code() {
+        Connection conn = null;
+        PreparedStatement count_q = null;
+        ResultSet results = null;
+
+        try {
+            conn = etc.getSQLConnection();
+            count_q = conn.prepareStatement("SELECT MAX(code) as max_code from `items-new`;");
+            results = count_q.executeQuery();
+
+            if(results.next()) return results.getInt("max_code");
+            
+        } catch (SQLException e) {
+            log.log(Level.SEVERE, "BankDB: " + e);
+        } finally {
+            try {
+                if (count_q != null) count_q.close();
+                if (results != null) results.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {}
+        }
+        return 0;
+    }
+    
+    public void setInventoryLock(Player p, boolean state) {
+        Connection conn = null;
+        PreparedStatement update = null;
+        PreparedStatement query = null;
+        ResultSet results = null;
+
+        try {
+            conn =  etc.getSQLConnection();
+            query = conn.prepareStatement("SELECT * FROM users WHERE name=?;");
+            query.setString(1, p.getName());
+            results = query.executeQuery();
+            if (!results.next()) {
+                // User does not exist in database, add it to the database
+                update = conn.prepareStatement("INSERT INTO users (name,inv_lock) VALUES (?,?);");
+                update.setString(1, p.getName());
+                if (state) update.setInt(2, 1);
+                else update.setInt(2, 0);
+                update.executeQuery();
+                return;
+            } else {
+                update = conn.prepareStatement("UPDATE users SET inv_lock=? WHERE name=?");
+                if (state) update.setInt(1, 1);
+                else update.setInt(1, 0);
+                update.setString(2, p.getName());
+                update.executeUpdate();
+            }
+        } catch (SQLException e) {
+            log.log(Level.SEVERE, "BankDB: " + e);
+        } finally {
+            try {
+                if (update != null) update.close();
+                if (query != null) query.close();
+                if (results != null) results.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {}
+        }
+
+    }
+
+    public boolean getInventoryLock(Player p) {
+        Connection conn = null;
+        PreparedStatement query = null;
+        ResultSet results = null;
+
+        try {
+            conn = etc.getSQLConnection();
+            query = conn.prepareStatement("SELECT inv_lock FROM users WHERE name=?;");
+            query.setString(1, p.getName());
+            results = query.executeQuery();
+            if(results.next()) {
+                int i = results.getInt("inv_lock");
+                if (i==1) return true;
+                else return false;
+            }
+        } catch (SQLException e) {
+            log.log(Level.SEVERE, "BankDB: " + e);
+        } finally {
+            try {
+                if (query != null) query.close();
+                if (results != null) results.close();
+                if (conn != null) conn.close();
+            } catch (SQLException e) {}
+        }
+
+    return false; 
     }
 
 }

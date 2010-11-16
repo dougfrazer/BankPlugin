@@ -6,11 +6,16 @@
  * @author Doug Frazer
  */
 
+import java.util.LinkedList;
+
 public class BankItem {
     public int quantity;
     public int item_id;
+    public int code;
     public String player;
     public String item_string;
+    private LinkedList<BankItem> cached;
+    private int MAX_ITEMS;
 
     public BankItem() {
         this.quantity = 0;
